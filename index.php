@@ -95,7 +95,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     file_put_contents($pdf_path, $pdf_output);
 
     // Enviar correo
-    if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto)) {
+    if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad)) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire('Éxito', 'El mensaje ha sido enviado', 'success').then(() => {
@@ -114,7 +114,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
-function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto) {
+function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad) {
     $mail = new PHPMailer(true);
     try {
         // Configuración del servidor
@@ -128,20 +128,23 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
 
         // Destinatarios
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-        $mail->addAddress('jbernal@devquick.co', $nombre);
+        $mail->addAddress(SMTP_ADMIN_EMAIL, $nombre); // Use the email from config.php
 
         // Contenido del correo con PDF
         $mail->isHTML(true);
         $mail->Subject = 'Cuenta de Cobro';
-        $mail->Body = 'Adjunto encontrarás la cuenta de cobro en formato PDF.';
+        $mail->Body = 'Adjunto encontrarás la cuenta de cobro en formato PDF.<br><br>
+        <a href="http://yourdomain.com/autorizar_pago.php?fecha=' . $fecha . '&nombre=' . $nombre . '&tipo_documento=' . $tipo_documento . '&numero_documento=' . $numero_documento . '&cantidad=' . $cantidad . '&correo_destino=' . $correo_destino . '" target="_blank">
+        Autorizar Pago</a>';
+
         $mail->addAttachment($pdf_path);
         $mail->send();
 
         // Enviar correo adicional sin PDF
         $mail->clearAddresses();
         $mail->addAddress($correo_destino);
-        $mail->Subject = 'Datos del Formulario';
-        $mail->Body = "Fecha: $fecha<br>Nombre: $nombre<br>La Suma de: $cantidad_texto pesos<br><br>La cuenta de cobro se ha generado exitosamente. Pronto estaremos respondiendo a $correo_destino confirmando que se efectuará el pago. En caso de no ser autorizado el pago, nos estaremos poniendo en contacto indicando el motivo.";
+        $mail->Subject = 'Cuenta de Cobro';
+        $mail->Body = "Envió de cuenta de cobro exitoso<br>Fecha: $fecha<br>Nombre: $nombre<br>La Suma de: $cantidad_texto pesos<br><br>La cuenta de cobro se ha generado exitosamente. Pronto estaremos respondiendo a $correo_destino confirmando que se efectuará el pago. En caso de no ser autorizado el pago, nos estaremos poniendo en contacto indicando el motivo.";
         $mail->send();
 
         return true;
@@ -162,6 +165,7 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         label { display: block; margin-top: 10px; font-weight: bold; }
         input, select { width: 100%; padding: 8px; margin-top: 5px; }
         button { margin-top: 15px; padding: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        h1, p { text-align: center; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
@@ -186,11 +190,18 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
                 input.value = value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            let today = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha').value = today;
+        });
     </script>
 </head>
 <body>
+    <h1>CUENTA DE COBRO</h1>
+    <p>Este formulario es con fines de mejorar el proceso de generar cuentas de cobro, toda información está sujeta a ser segura por la plataforma, no se almacena lo que está diligenciando.</p>
     <form id="formulario" action="" method="POST" enctype="multipart/form-data">
-        <label>Fecha:</label> <input type="date" name="fecha" required>
+        <label>Fecha:</label> <input type="date" id="fecha" name="fecha" required>
         <label>Nombre:</label> <input type="text" name="nombre" required>
         <label>Tipo Documento:</label>
         <select name="tipo_documento">
