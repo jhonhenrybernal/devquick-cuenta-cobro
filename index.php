@@ -50,6 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $firma = $_FILES['firma']['tmp_name'];
     $firma_data = base64_encode(file_get_contents($firma));
     $cantidad_formateada = number_format($cantidad, 2, ',', '.');
+    $concepto = $_POST['concepto'];
 
     // Generar contenido PDF
     $html = "<html>
@@ -74,6 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
     <div class='datos'>
     <p><strong>La Suma de:</strong> $cantidad_texto pesos ($cantidad_formateada)</p>
+    <p><strong>Concepto:</strong> $concepto</p>
     <p class='declaracion'>
     1. Pertenezco al Régimen Simplificado.<br>
     2. No Soy responsable del Impuesto a las Ventas.<br>
@@ -95,7 +97,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     file_put_contents($pdf_path, $pdf_output);
 
     // Enviar correo
-    if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad)) {
+    if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto)) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire('Éxito', 'El mensaje ha sido enviado', 'success').then(() => {
@@ -114,7 +116,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
-function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad) {
+function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto) {
     $mail = new PHPMailer(true);
     try {
         // Configuración del servidor
@@ -135,7 +137,8 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         $mail->Subject = 'Cuenta de Cobro';
         $mail->Body = 'Adjunto encontrarás la cuenta de cobro en formato PDF.<br><br>
         <a href="http://yourdomain.com/autorizar_pago.php?fecha=' . $fecha . '&nombre=' . $nombre . '&tipo_documento=' . $tipo_documento . '&numero_documento=' . $numero_documento . '&cantidad=' . $cantidad . '&correo_destino=' . $correo_destino . '" target="_blank">
-        Autorizar Pago</a>';
+        Autorizar Pago</a><br><br>
+        <strong>Concepto:</strong> ' . $concepto;
 
         $mail->addAttachment($pdf_path);
         $mail->send();
@@ -144,7 +147,7 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         $mail->clearAddresses();
         $mail->addAddress($correo_destino);
         $mail->Subject = 'Cuenta de Cobro';
-        $mail->Body = "Envió de cuenta de cobro exitoso<br>Fecha: $fecha<br>Nombre: $nombre<br>La Suma de: $cantidad_texto pesos<br><br>La cuenta de cobro se ha generado exitosamente. Pronto estaremos respondiendo a $correo_destino confirmando que se efectuará el pago. En caso de no ser autorizado el pago, nos estaremos poniendo en contacto indicando el motivo.";
+        $mail->Body = "Envió de cuenta de cobro exitoso<br>Fecha: $fecha<br>Nombre: $nombre<br>La Suma de: $cantidad_texto pesos<br><strong>Concepto:</strong> $concepto<br><br>La cuenta de cobro se ha generado exitosamente. Pronto estaremos respondiendo a $correo_destino confirmando que se efectuará el pago. En caso de no ser autorizado el pago, nos estaremos poniendo en contacto indicando el motivo.";
         $mail->send();
 
         return true;
@@ -163,7 +166,7 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         body { font-family: Arial, sans-serif; padding: 20px; }
         form { max-width: 600px; margin: auto; }
         label { display: block; margin-top: 10px; font-weight: bold; }
-        input, select { width: 100%; padding: 8px; margin-top: 5px; }
+        input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; }
         button { margin-top: 15px; padding: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
         h1, p { text-align: center; }
     </style>
@@ -211,6 +214,7 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         <label>Número Documento:</label> <input type="text" name="numero_documento" required>
         <label>La Suma de:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required>
         <span id="cantidad_texto"></span>
+        <label>Concepto:</label> <textarea name="concepto" required></textarea>
         <label>Correo Destino:</label> <input type="email" name="correo_destino" required>
         <label>Firma:</label> <input type="file" name="firma" accept="image/*" required>
         <button type="submit">Generar y Enviar</button>
