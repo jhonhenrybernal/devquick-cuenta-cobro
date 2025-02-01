@@ -250,7 +250,8 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formulario</title>
+    <title>Cuenta de cobro</title>
+    <link rel="icon" href="logo.jpg" type="image/png">
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         form { max-width: 600px; margin: auto; }
