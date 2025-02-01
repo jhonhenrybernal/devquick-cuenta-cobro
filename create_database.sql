@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS INSTANCIA.codigos_firma_digital (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(8) NOT NULL UNIQUE,
+    numero_documento VARCHAR(20) NOT NULL,
+    usado BOOLEAN DEFAULT 0,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    nombre_persona VARCHAR(100) NOT NULL
+);

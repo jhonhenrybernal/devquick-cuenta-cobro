@@ -33,6 +33,85 @@ function convertirNumeroTexto($numero) {
     return 'Número fuera de rango';
 }
 
+function generarCodigoUnico($longitud = 8) {
+    $caracteres = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $codigo = '';
+    for ($i = 0; $i < $longitud; $i++) {
+        $codigo .= $caracteres[rand(0, strlen($caracteres) - 1)];
+    }
+    return $codigo;
+}
+
+function guardarCodigoEnBaseDeDatos($codigo, $numero_documento) {
+    // Conexión a la base de datos
+    $conexion = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+    if ($conexion->connect_error) {
+        die("Conexión fallida: " . $conexion->connect_error);
+    }
+
+    // Verificar si el código ya existe
+    $stmt = $conexion->prepare("SELECT * FROM codigos_firma_digital WHERE codigo = ?");
+    $stmt->bind_param("s", $codigo);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    if ($resultado->num_rows > 0) {
+        // Si el código ya existe, generar uno nuevo
+        $codigo = generarCodigoUnico();
+        return guardarCodigoEnBaseDeDatos($codigo, $numero_documento);
+    } else {
+        // Guardar el nuevo código en la base de datos
+        $stmt = $conexion->prepare("INSERT INTO codigos_firma_digital (codigo, numero_documento, usado) VALUES (?, ?, 0)");
+        $stmt->bind_param("ss", $codigo, $numero_documento);
+        $stmt->execute();
+        $stmt->close();
+        $conexion->close();
+        return $codigo;
+    }
+}
+
+function validarCodigo($codigo) {
+    // Conexión a la base de datos
+    $conexion = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+    if ($conexion->connect_error) {
+        die("Conexión fallida: " . $conexion->connect_error);
+    }
+
+    // Verificar el código
+    $stmt = $conexion->prepare("SELECT * FROM codigos_firma_digital WHERE codigo = ?");
+    $stmt->bind_param("s", $codigo);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    if ($resultado->num_rows > 0) {
+        $fila = $resultado->fetch_assoc();
+        $fecha_creacion = new DateTime($fila['fecha_creacion']);
+        $fecha_actual = new DateTime();
+
+        // Validar solo la fecha, no la hora
+        $fecha_creacion->setTime(0, 0, 0);
+        $fecha_actual->setTime(0, 0, 0);
+
+        if ($fila['usado'] == 1) {
+            echo "<script>alert('Código ya usado. La página se cerrará por políticas de seguridad.'); window.location.href = 'index.php';</script>";
+            exit; // Cancel the process
+        } elseif ($fecha_creacion < $fecha_actual) {
+            echo "<script>alert('Código vencido. La página se cerrará por políticas de seguridad.'); window.location.href = 'index.php';</script>";
+            exit; // Cancel the process
+        } else {
+            $stmt = $conexion->prepare("UPDATE codigos_firma_digital SET usado = 1 WHERE codigo = ?");
+            $stmt->bind_param("s", $codigo);
+            $stmt->execute();
+            // Removed alert for valid code
+        }
+    } else {
+        echo "<script>alert('Código no encontrado');</script>";
+    }
+
+    $stmt->close();
+    $conexion->close();
+}
+
 if (isset($_GET['numero'])) {
     $numero = (float) $_GET['numero'];
     echo convertirNumeroTexto($numero);
@@ -44,13 +123,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nombre = $_POST['nombre'];
     $tipo_documento = $_POST['tipo_documento'];
     $numero_documento = $_POST['numero_documento'];
+    $correo_destino = $_POST['correo_destino_codigo_firma'];
     $cantidad = (float) str_replace(['.', ','], ['', '.'], $_POST['cantidad']);
     $cantidad_texto = convertirNumeroTexto($cantidad);
-    $correo_destino = $_POST['correo_destino'];
-    $firma = $_FILES['firma']['tmp_name'];
-    $firma_data = base64_encode(file_get_contents($firma));
     $cantidad_formateada = number_format($cantidad, 2, ',', '.');
     $concepto = $_POST['concepto'];
+    $codigo_unico = $_POST['codigo_firma'];
+    validarCodigo($codigo_unico);
+    guardarCodigoEnBaseDeDatos($codigo_unico, $numero_documento);
 
     // Generar contenido PDF
     $html = "<html>
@@ -63,6 +143,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     .fecha { text-align: right; font-size: 14px; }
     .empresa { text-align: center; font-size: 16px; font-weight: bold; }
     .debe-a { text-align: center; font-size: 16px; margin-top: 20px; }
+    .codigo-firma { text-align: left; margin-top: 40px; padding: 10px; background-color: #f0f0f0; border: 1px solid #ccc; display: inline-block; }
+    .codigo-firma span { font-weight: bold; color: black; }
+    .codigo-firma p { font-size: 12px; margin-top: 5px; color: gray; }
     </style></head>
     <body>
     <div class='fecha'>$fecha</div><br>
@@ -82,8 +165,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     3. No estoy obligado a expedir factura de venta según el artículo 616-2 del Estatuto Tributario.
     </p>
     <p class='texto'>Para poder aplicar retención en la fuente establecida en el Art. 383 del E.T, informo que no he contratado o vinculado dos o más trabajadores asociados a mi actividad económica.</p>
-    <div class='firma'><img src='data:image/png;base64,$firma_data'></div>
-    <p class='firma'><strong>$nombre</strong><br>$tipo_documento $numero_documento</p>
+    </div>
+    <br>
+    <br>
+    <p>$nombre</p>
+    <p>Firma Digital:</p>
+    <div class='codigo-firma'>
+        <span>$codigo_unico</span>
+        <p>Este código garantiza y asegura que fue firmado y aprobado por medio del correo $correo_destino</p>
+    </div>
     </body></html>";
 
     $options = new Options();
@@ -97,10 +187,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     file_put_contents($pdf_path, $pdf_output);
 
     // Enviar correo
-    if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto)) {
+    if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico)) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire('Éxito', 'El mensaje ha sido enviado', 'success').then(() => {
+                Swal.fire('Éxito', 'Cuenta de cobro generado exitosamente.', 'success').then(() => {
                     document.getElementById('formulario').reset();
                 });
             });
@@ -116,7 +206,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
-function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto) {
+function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico) {
     $mail = new PHPMailer(true);
     try {
         // Configuración del servidor
@@ -134,10 +224,9 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
 
         // Contenido del correo con PDF
         $mail->isHTML(true);
-        $mail->Subject = 'Cuenta de Cobro';
+        $mail->Subject = 'Cuenta de Cobro de ' . $nombre;
         $mail->Body = 'Adjunto encontrarás la cuenta de cobro en formato PDF.<br><br>
-        <a href="http://yourdomain.com/autorizar_pago.php?fecha=' . $fecha . '&nombre=' . $nombre . '&tipo_documento=' . $tipo_documento . '&numero_documento=' . $numero_documento . '&cantidad=' . $cantidad . '&correo_destino=' . $correo_destino . '" target="_blank">
-        Autorizar Pago</a><br><br>
+        <a href="http://yourdomain.com/autorizar_pago.php?codigo=' . $codigo_unico . '" target="_blank" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Autorizar Pago</a><br><br>
         <strong>Concepto:</strong> ' . $concepto;
 
         $mail->addAttachment($pdf_path);
@@ -198,12 +287,56 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
             let today = new Date().toISOString().split('T')[0];
             document.getElementById('fecha').value = today;
         });
+
+        function enviarDatosGenerarFirma() {
+            if (!validarFormulario()) {
+                return;
+            }
+            const button = document.querySelector('button[onclick="enviarDatosGenerarFirma()"]');
+            button.textContent = 'Generando...';
+            const formData = new FormData(document.getElementById('formulario'));
+            fetch('generarFirma.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    response.text().then(data => {
+                        document.getElementById('codigo_firma_container').style.display = 'block';
+                        document.getElementById('btn_submit').style.display = 'block';
+                    });
+                    Swal.fire('Generar Firma Digital', 'Revise su correo electrónico donde enviamos su código de firma digital', 'info');
+                } else {
+                    return response.text().then(text => { throw new Error(text) });
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'No se pudo generar la firma digital', 'error');
+            })
+            .finally(() => {
+                button.textContent = 'Generar Firma Digital';
+            });
+        }
+
+        function validarFormulario() {
+            const requiredFields = ['fecha', 'nombre', 'tipo_documento', 'numero_documento', 'cantidad', 'concepto', 'correo_destino_codigo_firma'];
+            for (let field of requiredFields) {
+                if (document.querySelector(`[name="${field}"]`).value.trim() === '') {
+                    Swal.fire('Error', 'Por favor complete todos los campos', 'error');
+                    return false;
+                }
+            }
+            return true;
+        }
     </script>
 </head>
 <body>
+    <div style="text-align: center;">
+        <img src="logo.jpg" alt="Logo" style="max-width: 200px;">
+    </div>
     <h1>CUENTA DE COBRO</h1>
     <p>Este formulario es con fines de mejorar el proceso de generar cuentas de cobro, toda información está sujeta a ser segura por la plataforma, no se almacena lo que está diligenciando.</p>
-    <form id="formulario" action="" method="POST" enctype="multipart/form-data">
+    <form id="formulario" action="" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('btn_submit').textContent = 'Procesando...'; return validarFormulario()">
         <label>Fecha:</label> <input type="date" id="fecha" name="fecha" required>
         <label>Nombre:</label> <input type="text" name="nombre" required>
         <label>Tipo Documento:</label>
@@ -215,9 +348,16 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         <label>La Suma de:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required>
         <span id="cantidad_texto"></span>
         <label>Concepto:</label> <textarea name="concepto" required></textarea>
-        <label>Correo Destino:</label> <input type="email" name="correo_destino" required>
-        <label>Firma:</label> <input type="file" name="firma" accept="image/*" required>
-        <button type="submit">Generar y Enviar</button>
+        <label>Correo Destino para firma digital:</label> 
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <input type="email" name="correo_destino_codigo_firma" required style="flex: 1; margin-right: 10px;">
+            <button type="button" onclick="enviarDatosGenerarFirma()" style="margin-top: 5px;">Generar Firma Digital</button>
+        </div>
+        <div id="codigo_firma_container" style="display: none;">
+            <label>Código de Firma Digital:</label>
+            <input type="text" id="codigo_firma" name="codigo_firma">
+        </div>
+        <button id="btn_submit" type="submit" style="display: none;">Generar y Enviar</button>
     </form>
 </body>
 </html>
