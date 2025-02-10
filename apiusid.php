@@ -7,35 +7,9 @@ $api_url_login = $api_url."/login";
 $api_user = API_USER;
 $api_password = API_PW;
 
-// **1️⃣ Autenticación en la API**
-$login_payload = json_encode([
-    "login" => $api_user,
-    "password" => $api_password
-]);
-
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $api_url_login);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, $login_payload);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json'
-]);
-
-$response = curl_exec($ch);
-curl_close($ch);
-
-$auth_data = json_decode($response, true);
-
-if (!$auth_data || empty($auth_data['success'])) {
-    echo json_encode(["error" => "Error de autenticación: " . ($auth_data['error'] ?? "No se pudo autenticar")]);
-    exit;
-}
 
 // Obtener el token de autenticación
-$api_token = $auth_data['success']['token'];
-
-
+$api_token = API_TOKEN;
 
 // Configuración de usuarios de la API
 $tipo_documento = $_POST['tipo_documento'];
