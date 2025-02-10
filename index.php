@@ -28,10 +28,14 @@ function convertirNumeroTexto($numero) {
         return $decenas2[floor($numero / 10) - 2] . ' y ' . $unidades[$numero % 10];
     }
     if ($numero < 1000) {
+        if ($numero == 100) return 'cien';
+        if ($numero < 200) return 'ciento ' . convertirNumeroTexto($numero % 100);
         if ($numero % 100 === 0) return $centenas[floor($numero / 100) - 1];
         return $centenas[floor($numero / 100) - 1] . ' ' . convertirNumeroTexto($numero % 100);
     }
     if ($numero < 1000000) {
+        if ($numero == 1000) return 'mil';
+        if ($numero < 2000) return 'mil ' . convertirNumeroTexto($numero % 1000);
         if ($numero % 1000 === 0) return convertirNumeroTexto(floor($numero / 1000)) . ' mil';
         return convertirNumeroTexto(floor($numero / 1000)) . ' mil ' . convertirNumeroTexto($numero % 1000);
     }
@@ -41,6 +45,7 @@ function convertirNumeroTexto($numero) {
     }
     return 'Número fuera de rango';
 }
+
 
 ?>
 <!DOCTYPE html>
@@ -171,17 +176,18 @@ function convertirNumeroTexto($numero) {
     <p>Este formulario es con fines de mejorar el proceso de generar cuentas de cobro, toda información está sujeta a ser segura por la plataforma, no se almacena lo que está diligenciando.</p>
     <form id="formulario" method="POST" enctype="multipart/form-data">
         <label>Fecha:</label> <input type="date" id="fecha" name="fecha" required>
-        <label>Nombre:</label> <input type="text" name="nombre" required>
-        <label>Tipo Documento:</label>
+        <label>Su nombre completo:</label> <input type="text" name="nombre" required>
+        <label>Su tipo Documento:</label>
         <select name="tipo_documento">
+            <option value="">Seleccione</option>
             <option value="cc">Cédula de Ciudadanía</option>
             <option value="nit">NIT</option>
         </select>
-        <label>Número Documento:</label> <input type="text" name="numero_documento" required>
-        <label>La Suma de:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required>
+        <label>Su número Documento:</label> <input type="text" name="numero_documento" required>
+        <label>Agregue la Suma de dinero:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required pattern="\d*">
         <span id="cantidad_texto"></span>
-        <label>Concepto:</label> <textarea name="concepto" required></textarea>
-        <label>Correo Destino para firma digital:</label> 
+        <label>Su concepto:</label> <textarea name="concepto" required></textarea>
+        <label>Su Correo para generar firma digital:</label> 
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <input type="email" name="correo_destino_codigo_firma" required style="flex: 1; margin-right: 10px;">
             <button type="button" onclick="enviarDatosGenerarFirma()" style="margin-top: 5px;">Generar Firma Digital</button>
