@@ -250,7 +250,8 @@ function convertirNumeroTexto($numero) {
             }
             const button = document.getElementById('btn_submit');
             button.textContent = 'Procesando...';
-            const formData = new FormData(document.getElementById('formulario'));
+            const form = document.getElementById('formulario'); // Obtener la referencia al formulario
+            const formData = new FormData(form);
             fetch('procesar_formulario.php', {
                 method: 'POST',
                 body: formData
@@ -270,9 +271,6 @@ function convertirNumeroTexto($numero) {
                         recargarCaptcha(); // Recargar el CAPTCHA tras éxito
                         let today = new Date().toISOString().split('T')[0];
                         document.getElementById('fecha').value = today;
-                        setTimeout(() => {
-                            window.location.href = 'index.php'; // Redirigir a la página de inicio
-                        }, 3000);
                     } else {
                         window.location.href = 'https://devquick.co'; // Redirigir a la página de salida
                     }

@@ -212,11 +212,11 @@ curl_close($curl);
 // Mostrar respuesta de la API
 // header('Content-Type: application/json');
 // echo $response;
-
+$idGasto = $response;
 //END GENERACION DE GASTOS DOLI
 
 // Enviar correo
-if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico)) {
+if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico,$idGasto)) {
     echo "<script>
         document.addEventListener('DOMContentLoaded', function() {
             Swal.fire('Éxito', 'Cuenta de cobro generado exitosamente.', 'success').then(() => {
@@ -306,7 +306,7 @@ function validarCodigo($codigo) {
 }
 
 
-function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico) {
+function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico,$idGasto) {
     $mail = new PHPMailer(true);
     try {
         // Configuración del servidor
@@ -329,7 +329,7 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         $mail->isHTML(true);
         $mail->Subject = 'Cuenta de Cobro de ' . $nombre;
         $mail->Body = 'Adjunto encontrarás la cuenta de cobro en formato PDF.<br><br>
-        <a href="https://suite.devquick.co/" target="_blank" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Autorizar Pago</a><br><br>
+        <a href="https://suite.devquick.co/expensereport/card.php?id=' . $idGasto . '&save_lastsearch_values=1" target="_blank" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Autorizar Pago</a><br><br>
         <strong>Concepto:</strong> ' . $concepto;
 
         $mail->addAttachment($pdf_path);
