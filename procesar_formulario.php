@@ -13,6 +13,7 @@ $nombre = $_POST['nombre'];
 $tipo_documento = $_POST['tipo_documento'];
 $numero_documento = $_POST['numero_documento'];
 $correo_destino = $_POST['correo_destino_codigo_firma'];
+$idUser = $_POST['idUser'];
 $cantidad = (float) str_replace(['.', ','], ['', '.'], $_POST['cantidad']);
 $cantidad_texto = convertirNumeroTextoPDF($cantidad);
 $cantidad_formateada = number_format($cantidad, 2, ',', '.');
@@ -75,6 +76,171 @@ $pdf_output = $dompdf->output();
 $pdf_path = "cuenta_cobro.pdf";
 file_put_contents($pdf_path, $pdf_output);
 
+
+
+//GENERACION DE GASTOS DOLI
+// Configuración de credenciales de la API
+$api_url_login = "/api/index.php/login";
+$api_user = API_USER;
+$api_password = API_PW;
+
+// **1️⃣ Autenticación en la API**
+$login_payload = json_encode([
+    "login" => $api_user,
+    "password" => $api_password
+]);
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $api_url_login);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+curl_setopt($ch, CURLOPT_POST, 1);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $login_payload);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json'
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$auth_data = json_decode($response, true);
+
+if (!$auth_data || empty($auth_data['success'])) {
+    die("Error de autenticación: " . ($auth_data['error'] ?? "No se pudo autenticar"));
+}
+
+// Obtener el token de autenticación
+$api_token = $auth_data['success']['token'];
+
+
+
+$curl = curl_init();
+// Variables necesarias
+$notePrivate = $concepto . ' ,con el código de firma digital ' . $codigo_unico;
+
+// Fechas dinámicas
+$date_today = date("Y-m-d");  // Fecha en formato Y-m-d
+$date_today_timestamp = strtotime($date_today);  // Convertir a timestamp
+$date_create = time();  // Timestamp actual
+$date_fin = strtotime("+1 day", $date_today_timestamp);  // Un día después
+
+// Cálculo de impuestos y totales
+$total_ttc = $cantidad;  // Total con impuestos (el monto final)
+$total_tva = $total_ttc * 0.19;  // IVA del 19%
+$total_ht = $total_ttc - $total_tva;  // Total sin impuestos
+
+// Construcción del JSON
+$post_data = [
+    "entity" => "1",
+    "total_ht" => number_format($total_ht, 8, '.', ''),
+    "total_tva" => number_format($total_tva, 8, '.', ''),
+    "total_localtax1" => "0.00000000",
+    "total_localtax2" => "0.00000000",
+    "total_ttc" => number_format($total_ttc, 8, '.', ''),
+    "date_debut" => $date_today_timestamp,
+    "date_fin" => $date_fin,
+    "date_create" => $date_create,
+    "date_valid" => null,
+    "date_approve" => null,
+    "date_refuse" => null,
+    "date_cancel" => null,
+    "fk_user_author" => $idUser,
+    "fk_user_creat" => "1",
+    "fk_user_modif" => null,
+    "fk_user_valid" => null,
+    "fk_user_validator" => "1",
+    "fk_user_approve" => null,
+    "fk_user_refuse" => null,
+    "fk_user_cancel" => null,
+    "fk_statut" => "0",
+    "fk_c_paiement" => null,
+    "paid" => "0",
+    "note_public" => $notePrivate,
+    "note_private" => $notePrivate,
+    "model_pdf" => "expensereport/(PROV36)/(PROV36).pdf",
+    "lines" => [
+        [
+            "rowid" => "5",
+            "qty" => number_format($total_ttc, 2, '.', ''),
+            "value_unit" => "1.00000000",
+            "subprice" => null,
+            "multicurrency_subprice" => null,
+            "date" => $date_today,
+            "dates" => $date_today_timestamp,
+            "fk_c_type_fees" => "2",
+            "fk_c_exp_tax_cat" => "0",
+            "type_fees_code" => "TF_TRIP",
+            "type_fees_libelle" => "Transportation",
+            "type_fees_accountancy_code" => null,
+            "projet_ref" => null,
+            "projet_title" => null,
+            "rang" => "0",
+            "vatrate" => "19.0000",
+            "vat_src_code" => "co",
+            "tva_tx" => "19.0000",
+            "localtax1_tx" => "0.0000",
+            "localtax2_tx" => "0.0000",
+            "localtax1_type" => "0",
+            "localtax2_type" => "0",
+            "total_ht" => number_format($total_ht, 8, '.', ''),
+            "total_tva" => number_format($total_tva, 8, '.', ''),
+            "total_ttc" => number_format($total_ttc, 8, '.', ''),
+            "total_localtax1" => "0.00000000",
+            "total_localtax2" => "0.00000000",
+            "multicurrency_tx" => null,
+            "multicurrency_total_ht" => null,
+            "multicurrency_total_tva" => null,
+            "multicurrency_total_ttc" => null,
+            "fk_ecm_files" => null,
+            "rule_warning_message" => null,
+            "id" => "4",
+            "fk_unit" => null,
+            "description" => null,
+            "product" => null,
+            "product_ref" => null,
+            "product_label" => null,
+            "product_barcode" => null,
+            "product_desc" => null,
+            "fk_product_type" => null,
+            "remise_percent" => null,
+            "info_bits" => null,
+            "special_code" => null,
+            "module" => null,
+            "entity" => null,
+            "import_key" => null
+        ]
+    ]
+];
+
+// Convertir array a JSON
+$json_data = json_encode($post_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+// Configurar cURL
+$curl = curl_init();
+curl_setopt_array($curl, [
+    CURLOPT_URL => 'api/index.php/expensereports',
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_ENCODING => '',
+    CURLOPT_MAXREDIRS => 10,
+    CURLOPT_TIMEOUT => 0,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+    CURLOPT_CUSTOMREQUEST => 'POST',
+    CURLOPT_POSTFIELDS => $json_data,
+    CURLOPT_HTTPHEADER => [
+        'DOLAPIKEY: ' . $api_token,
+        'Content-Type: application/json'
+    ],
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+
+// Mostrar respuesta de la API
+// header('Content-Type: application/json');
+// echo $response;
+
+//END GENERACION DE GASTOS DOLI
+
 // Enviar correo
 if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico)) {
     echo "<script>
@@ -115,21 +281,12 @@ function guardarCodigoEnBaseDeDatos($codigo, $numero_documento,$cantidad) {
     $stmt->execute();
     $resultado = $stmt->get_result();
 
-    if ($resultado->num_rows > 0) {
-        // Si el código ya existe, generar uno nuevo
-        $codigo = generarCodigoUnico();
-        return guardarCodigoEnBaseDeDatos($codigo, $numero_documento);
-    } else {
-        // Guardar el nuevo código en la base de datos
-        $stmt = $conexion->prepare("INSERT INTO codigos_firma_digital (codigo, numero_documento, usado) VALUES (?, ?, 0)");
-        $stmt->bind_param("ss", $codigo, $numero_documento);
-        $stmt->execute();
-        $stmt->close();
-        $conexion->close();
-        return $codigo;
-    }
-
-    registrarGasto($numero_documento, $cantidad, $concepto);
+    // Guardar el nuevo código en la base de datos
+    $stmt = $conexion->prepare("INSERT INTO codigos_firma_digital (codigo, numero_documento, usado) VALUES (?, ?, 0)");
+    $stmt->bind_param("ss", $codigo, $numero_documento);
+    $stmt->execute();
+    $stmt->close();
+    $conexion->close();
 }
 
 function validarCodigo($codigo) {
@@ -241,119 +398,6 @@ function convertirNumeroTextoPDF($numero) {
         return convertirNumeroTextoPDF(floor($numero / 1000000)) . ' millones ' . convertirNumeroTextoPDF($numero % 1000000);
     }
     return 'Número fuera de rango';
-}
-
-function registrarGasto($numero_documento, $cantidad, $concepto) {
-    $iva = 19; // IVA del 19%
-    $total_ttc = $cantidad;
-    $total_ht = $total_ttc / (1 + ($iva / 100));
-    $total_tva = $total_ht * ($iva / 100);
-
-    // Conexión a la base de datos
-    $conexion = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
-    
-    if ($conexion->connect_error) {
-        die("Error de conexión: " . $conexion->connect_error);
-    }
-
-    // Buscar el usuario por número de documento
-    $stmt = $conexion->prepare("SELECT rowid FROM dmq_user WHERE national_registration_number = ?");
-    $stmt->bind_param("s", $numero_documento);
-    $stmt->execute();
-    $resultado = $stmt->get_result();
-
-    if ($resultado->num_rows === 0) {
-        echo "Error: Usuario no encontrado.";
-        return false;
-    }
-
-    $fila = $resultado->fetch_assoc();
-    $user_id = $fila['rowid'];
-    $stmt->close();
-
-    // Iniciar transacción para mantener la integridad de los datos
-    $conexion->begin_transaction();
-
-    try {
-        // Insertar en dmq_expensereport
-        $stmt = $conexion->prepare("
-            INSERT INTO dmq_expensereport (
-                ref, entity, total_ht, total_tva, total_ttc, 
-                date_debut, date_fin, date_create, tms, 
-                fk_user_author, fk_user_creat, fk_user_valid, 
-                model_pdf, fk_multicurrency, multicurrency_code, multicurrency_tx, 
-                multicurrency_total_ht, multicurrency_total_tva, multicurrency_total_ttc
-            ) 
-            VALUES (
-                ?, 1, ?, ?, ?, 
-                CURDATE(), CURDATE(), NOW(), NOW(), 
-                ?, ?, ?, 
-                ?, 1, 'USD', 1.00000000, 
-                ?, ?, ?
-            )
-        ");
-        
-        $ref = 'ER' . date('ymd') . '-' . rand(1000, 9999); // Generar referencia dinámica
-        $model_pdf = "expensereport/$ref/$ref.pdf";
-
-        $stmt->bind_param("sddddiisdddd",
-            $ref, $total_ht, $total_tva, $total_ttc, 
-            $user_id, $user_id, $user_id, 
-            $model_pdf, $total_ht, $total_tva, $total_ttc
-        );
-        $stmt->execute();
-        $expense_id = $conexion->insert_id;
-        $stmt->close();
-
-        // Insertar en dmq_expensereport_det
-        $stmt = $conexion->prepare("
-            INSERT INTO dmq_expensereport_det (
-                fk_expensereport, comments, product_type, qty, subprice, 
-                value_unit, tva_tx, total_ht, total_tva, total_ttc, 
-                date
-            ) 
-            VALUES (?, ?, -1, 1, ?, ?, 19.0000, ?, ?, ?, CURDATE())
-        ");
-        
-        $stmt->bind_param("isdssss", 
-            $expense_id, $concepto, $total_ht, $total_ttc, 
-            $total_ht, $total_tva, $total_ttc
-        );
-        $stmt->execute();
-        $stmt->close();
-
-        // Insertar en dmq_ecm_files
-        $stmt = $conexion->prepare("
-            INSERT INTO dmq_ecm_files (
-                ref, label, entity, filepath, filename, src_object_type, src_object_id, 
-                fullpath_orig, description, date_c, tms, fk_user_c
-            ) 
-            VALUES (?, 'Factura soporte técnico', 1, ?, ?, 'expensereport', ?, ?, ?, NOW(), NOW(), ?)
-        ");
-        
-        $filename = "factura_soporte.pdf";
-        $fullpath = "expensereport/$ref/$filename";
-        $descripcion = "Factura adjunta para el informe de gastos";
-
-        $stmt->bind_param("sssssss", 
-            $ref, $model_pdf, $filename, $expense_id, $fullpath, $descripcion, $user_id
-        );
-        $stmt->execute();
-        $stmt->close();
-
-        // Confirmar la transacción
-        $conexion->commit();
-        echo "Registro de gasto completado correctamente.";
-
-        return true;
-    } catch (Exception $e) {
-        // En caso de error, revertir la transacción
-        $conexion->rollback();
-        echo "Error: " . $e->getMessage();
-        return false;
-    } finally {
-        $conexion->close();
-    }
 }
 
 ?>

@@ -85,6 +85,37 @@ function convertirNumeroTexto($numero) {
         document.addEventListener('DOMContentLoaded', function() {
             let today = new Date().toISOString().split('T')[0];
             document.getElementById('fecha').value = today;
+
+            document.querySelector('[name="numero_documento"]').addEventListener('blur', function() {
+                let tipoDocumento = document.querySelector('[name="tipo_documento"]').value;
+                let numeroDocumento = this.value.trim();
+                if (tipoDocumento && numeroDocumento) {
+                    fetch('apiusid.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `tipo_documento=${tipoDocumento}&numero_documento=${numeroDocumento}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data); // Handle the response data as needed
+                        if (data.id) {
+                            let idUserInput = document.querySelector('[name="idUser"]');
+                            if (!idUserInput) {
+                                idUserInput = document.createElement('input');
+                                idUserInput.type = 'hidden';
+                                idUserInput.name = 'idUser';
+                                document.getElementById('formulario').appendChild(idUserInput);
+                            }
+                            idUserInput.value = data.id;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                }
+            });
         });
 
         function enviarDatosGenerarFirma() {
@@ -143,8 +174,8 @@ function convertirNumeroTexto($numero) {
         <label>Nombre:</label> <input type="text" name="nombre" required>
         <label>Tipo Documento:</label>
         <select name="tipo_documento">
-            <option value="C.C">Cédula de Ciudadanía</option>
-            <option value="NIT">NIT</option>
+            <option value="cc">Cédula de Ciudadanía</option>
+            <option value="nit">NIT</option>
         </select>
         <label>Número Documento:</label> <input type="text" name="numero_documento" required>
         <label>La Suma de:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required>
