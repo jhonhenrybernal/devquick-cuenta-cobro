@@ -117,6 +117,7 @@ function convertirNumeroTexto($numero) {
                         }
                     })
                     .catch(error => {
+                        Swal.fire('Alerta', 'Valide su tipo y numero de documento', 'info');
                         console.error('Error:', error);
                     });
                 }
