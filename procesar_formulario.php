@@ -80,7 +80,8 @@ file_put_contents($pdf_path, $pdf_output);
 
 //GENERACION DE GASTOS DOLI
 // Configuración de credenciales de la API
-$api_url_login = "https://suite.devquick.co/api/index.php/login";
+$api_url = API_URL;
+$api_url_login = $api_url."/login";
 $api_user = API_USER;
 $api_password = API_PW;
 
@@ -217,7 +218,7 @@ $json_data = json_encode($post_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNI
 // Configurar cURL
 $curl = curl_init();
 curl_setopt_array($curl, [
-    CURLOPT_URL => 'https://suite.devquick.co/api/index.php/expensereports',
+    CURLOPT_URL => $api_url.'/expensereports',
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_ENCODING => '',
     CURLOPT_MAXREDIRS => 10,

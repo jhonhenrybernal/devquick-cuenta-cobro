@@ -2,7 +2,8 @@
 require 'config.php';
 
 // Configuración de credenciales de la API
-$api_url_login = "https://demo-suite.devquick.co/api/index.php/login";
+$api_url = API_URL;
+$api_url_login = $api_url."/login";
 $api_user = API_USER;
 $api_password = API_PW;
 
@@ -42,7 +43,7 @@ $numero_documento = $_POST['numero_documento'];
 $curl = curl_init();
 // Construir el número de documento
 $document = $tipo_documento . $numero_documento;
-$base_url = "https://demo-suite.devquick.co/api/index.php/users";
+$base_url = $api_url."/users";
 $filter = urlencode("(t.national_registration_number:like:'$document')");
 $url = "$base_url?sortfield=t.rowid&sqlfilters=$filter";
 
