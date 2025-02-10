@@ -4,8 +4,6 @@ require 'config.php';
 // Configuración de credenciales de la API
 $api_url = API_URL;
 $api_url_login = $api_url."/login";
-$api_user = API_USER;
-$api_password = API_PW;
 
 
 // Obtener el token de autenticación
