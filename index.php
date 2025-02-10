@@ -184,7 +184,7 @@ function convertirNumeroTexto($numero) {
             <option value="nit">NIT</option>
         </select>
         <label>Su número Documento:</label> <input type="text" name="numero_documento" required>
-        <label>Agregue la Suma de dinero:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required pattern="\d*">
+        <label>Agregue la Suma de dinero:</label> <input type="text" id="cantidad" name="cantidad" oninput="convertirNumeroTexto()" onblur="formatDecimalInput(event)" required>
         <span id="cantidad_texto"></span>
         <label>Su concepto:</label> <textarea name="concepto" required></textarea>
         <label>Su Correo para generar firma digital:</label> 
