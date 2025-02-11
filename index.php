@@ -274,7 +274,7 @@ function convertirNumeroTextoConPesos($numero) {
                 body: formData
             })
             .then(response => {
-                if (response.ok) {
+                if (response.success) {
                     Swal.fire({
                     title: 'Éxito',
                     text: 'Formulario procesado correctamente',
@@ -284,16 +284,16 @@ function convertirNumeroTextoConPesos($numero) {
                     cancelButtonText: 'Salir de la página',
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        form.reset();
-                        recargarCaptcha(); // Recargar el CAPTCHA tras éxito
-                        let today = new Date().toISOString().split('T')[0];
-                        document.getElementById('fecha').value = today;
+                        // form.reset();
+                        // recargarCaptcha(); // Recargar el CAPTCHA tras éxito
+                        // let today = new Date().toISOString().split('T')[0];
+                        // document.getElementById('fecha').value = today;
                     } else {
                         window.location.href = 'https://devquick.co'; // Redirigir a la página de salida
                     }
                 });
                 } else {
-                    return response.text().then(text => { throw new Error(text) });
+                    Swal.fire('Error', 'No se pudo procesar el formulario', 'error');
                 }
             })
             .catch(error => {

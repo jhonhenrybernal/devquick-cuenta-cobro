@@ -1,8 +1,8 @@
 <?php
 session_start();
+header('Content-Type: application/json');
 require 'vendor/autoload.php';
 require 'config.php';
-require 'index.php'; // Include the index.php file to access the functions
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use PHPMailer\PHPMailer\PHPMailer;
@@ -19,8 +19,53 @@ $cantidad_texto = convertirNumeroTextoPDF($cantidad);
 $cantidad_formateada = number_format($cantidad, 2, ',', '.');
 $concepto = $_POST['concepto'];
 $codigo_unico = $_POST['codigo_firma'];
-validarCodigo($codigo_unico);
-guardarCodigoEnBaseDeDatos($codigo_unico, $numero_documento,$cantidad,$concepto);
+
+$codigo_firma = $_POST['codigo_firma'];
+$fecha_manana = date("Y-m-d 00:00:00", strtotime("+1 day"));
+
+$conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+if ($conn->connect_error) {
+    die("Conexión fallida: " . $conn->connect_error);
+}
+
+// Consulta para verificar el estado del código
+$sql = "SELECT usado, fecha_creacion FROM codigos_firma_digital WHERE codigo = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $codigo_firma);
+$stmt->execute();
+$stmt->store_result();
+$stmt->bind_result($usado, $fecha_creacion);
+
+if ($stmt->num_rows > 0) {
+    $stmt->fetch();
+    
+    // Si el código ya fue usado, impedir el proceso
+    if ($usado == 1) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "El código de firma ya ha sido utilizado. No puedes continuar."]);
+        exit;
+    }
+
+    // Validar si la fecha de creación ha pasado la fecha de mañana
+    if ($fecha_creacion > $fecha_manana) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "El código de firma ha expirado ".$fecha_manana.". No puedes continuar."]);
+        exit;
+    }
+
+    // Si todo está correcto, actualizar a usado = 1
+    $update_sql = "UPDATE codigos_firma_digital SET usado = 1 WHERE codigo = ?";
+    $update_stmt = $conn->prepare($update_sql);
+    $update_stmt->bind_param("s", $codigo_firma);
+    $update_stmt->execute();
+    $update_stmt->close();
+} else {
+    echo json_encode(["status" => "error", "message" => "El código de firma no existe."]);
+    exit;
+}
+
+$stmt->close();
+$conn->close();
 
 // Generar contenido PDF
 $html = "<html>
@@ -209,103 +254,20 @@ curl_setopt_array($curl, [
 $response = curl_exec($curl);
 curl_close($curl);
 
-// Mostrar respuesta de la API
-// header('Content-Type: application/json');
-// echo $response;
-$idGasto = $response;
+// Capturar la respuesta de la petición expensereports
+$idGasto = json_decode($response, true);
+
+
 //END GENERACION DE GASTOS DOLI
 
 // Enviar correo
-if (enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico,$idGasto)) {
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            Swal.fire('Éxito', 'Cuenta de cobro generado exitosamente.', 'success').then(() => {
-                //document.getElementById('formulario').reset();
-            });
-        });
-    </script>";
-} else {
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            Swal.fire('Error', 'El mensaje no pudo ser enviado', 'error').then(() => {
-                //document.getElementById('formulario').reset();
-            });
-        });
-    </script>";
-}
-function generarCodigoUnico($longitud = 8) {
-    $caracteres = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    $codigo = '';
-    for ($i = 0; $i < $longitud; $i++) {
-        $codigo .= $caracteres[rand(0, strlen($caracteres) - 1)];
-    }
-    return $codigo;
-}
-
-function guardarCodigoEnBaseDeDatos($codigo, $numero_documento,$cantidad) {
-    // Conexión a la base de datos
-    $conexion = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
-    if ($conexion->connect_error) {
-        die("Conexión fallida: " . $conexion->connect_error);
-    }
-
-    // Verificar si el código ya existe
-    $stmt = $conexion->prepare("SELECT * FROM codigos_firma_digital WHERE codigo = ?");
-    $stmt->bind_param("s", $codigo);
-    $stmt->execute();
-    $resultado = $stmt->get_result();
-
-    // Guardar el nuevo código en la base de datos
-    $stmt = $conexion->prepare("INSERT INTO codigos_firma_digital (codigo, numero_documento, usado) VALUES (?, ?, 0)");
-    $stmt->bind_param("ss", $codigo, $numero_documento);
-    $stmt->execute();
-    $stmt->close();
-    $conexion->close();
-}
-
-function validarCodigo($codigo) {
-    // Conexión a la base de datos
-    $conexion = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
-    if ($conexion->connect_error) {
-        die("Conexión fallida: " . $conexion->connect_error);
-    }
-
-    // Verificar el código
-    $stmt = $conexion->prepare("SELECT * FROM codigos_firma_digital WHERE codigo = ?");
-    $stmt->bind_param("s", $codigo);
-    $stmt->execute();
-    $resultado = $stmt->get_result();
-
-    if ($resultado->num_rows > 0) {
-        $fila = $resultado->fetch_assoc();
-        $fecha_creacion = new DateTime($fila['fecha_creacion']);
-        $fecha_actual = new DateTime();
-
-        // Validar solo la fecha, no la hora
-        $fecha_creacion->setTime(0, 0, 0);
-        $fecha_actual->setTime(0, 0, 0);
-
-        if ($fila['usado'] == 1) {
-            echo "<script>alert('Código ya usado. La página se cerrará por políticas de seguridad.'); window.location.href = 'index.php';</script>";
-            exit; // Cancel the process
-        } elseif ($fecha_creacion < $fecha_actual) {
-            echo "<script>alert('Código vencido. La página se cerrará por políticas de seguridad.'); window.location.href = 'index.php';</script>";
-            exit; // Cancel the process
-        } else {
-            $stmt = $conexion->prepare("UPDATE codigos_firma_digital SET usado = 1 WHERE codigo = ?");
-            $stmt->bind_param("s", $codigo);
-            $stmt->execute();
-            // Removed alert for valid code
-        }
-    } else {
-        echo "<script>alert('Código no encontrado');</script>";
-    }
-
-    $stmt->close();
-    $conexion->close();
-}
+if (!enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico, $idGasto)) {
+    http_response_code(403); // Internal Server Error
+    echo json_encode(["status" => "error", "message" => "El mensaje no pudo ser enviado"]);
+} 
 
 
+// Enviar correo con PDF adjunto
 function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico,$idGasto) {
     $mail = new PHPMailer(true);
     try {
@@ -347,6 +309,8 @@ function enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_tex
         return false;
     }
 }
+
+// Convertir número a texto para PDF
 function convertirNumeroTextoPDF($numero) {
     $unidades = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
     $decenas = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
@@ -373,5 +337,6 @@ function convertirNumeroTextoPDF($numero) {
     }
     return 'Número fuera de rango';
 }
-
+http_response_code(200); // OK
+echo json_encode(['success' => true, 'id' => $idGasto]);
 ?>
