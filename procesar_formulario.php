@@ -42,14 +42,14 @@ if ($stmt->num_rows > 0) {
     // Si el código ya fue usado, impedir el proceso
     if ($usado == 1) {
         http_response_code(403);
-        echo json_encode(["status" => "error", "message" => "El código de firma ya ha sido utilizado. No puedes continuar."]);
+        echo json_encode(["success" => false, "message" => "El código de firma ya ha sido utilizado. No puedes continuar."]);
         exit;
     }
 
     // Validar si la fecha de creación ha pasado la fecha de mañana
     if ($fecha_creacion > $fecha_manana) {
         http_response_code(403);
-        echo json_encode(["status" => "error", "message" => "El código de firma ha expirado ".$fecha_manana.". No puedes continuar."]);
+        echo json_encode(["success" => false, "message" => "El código de firma ha expirado ".$fecha_manana.". No puedes continuar."]);
         exit;
     }
 
@@ -60,7 +60,7 @@ if ($stmt->num_rows > 0) {
     $update_stmt->execute();
     $update_stmt->close();
 } else {
-    echo json_encode(["status" => "error", "message" => "El código de firma no existe."]);
+    echo json_encode(["success" => false, "message" => "El código de firma no existe."]);
     exit;
 }
 
@@ -263,7 +263,8 @@ $idGasto = json_decode($response, true);
 // Enviar correo
 if (!enviarCorreo($pdf_path, $nombre, $correo_destino, $fecha, $cantidad_texto, $tipo_documento, $numero_documento, $cantidad, $concepto, $codigo_unico, $idGasto)) {
     http_response_code(403); // Internal Server Error
-    echo json_encode(["status" => "error", "message" => "El mensaje no pudo ser enviado"]);
+    echo json_encode(["success" => false, "message" => "El mensaje no pudo ser enviado"]);
+    exit;
 } 
 
 

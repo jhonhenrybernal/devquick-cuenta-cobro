@@ -1,10 +1,6 @@
 <?php
 require 'vendor/autoload.php';
-require 'config.php'; // Include the configuration file
-use Dompdf\Dompdf;
-use Dompdf\Options;
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+require 'config.php'; // Include the configuration file\
 
 
 if (isset($_GET['numero'])) {
@@ -274,7 +270,7 @@ function convertirNumeroTextoConPesos($numero) {
                 body: formData
             })
             .then(response => {
-                if (response.success) {
+                if (response.ok) {
                     Swal.fire({
                     title: 'Éxito',
                     text: 'Formulario procesado correctamente',
@@ -284,10 +280,10 @@ function convertirNumeroTextoConPesos($numero) {
                     cancelButtonText: 'Salir de la página',
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // form.reset();
-                        // recargarCaptcha(); // Recargar el CAPTCHA tras éxito
-                        // let today = new Date().toISOString().split('T')[0];
-                        // document.getElementById('fecha').value = today;
+                        form.reset();
+                        recargarCaptcha(); // Recargar el CAPTCHA tras éxito
+                        let today = new Date().toISOString().split('T')[0];
+                        document.getElementById('fecha').value = today;
                     } else {
                         window.location.href = 'https://devquick.co'; // Redirigir a la página de salida
                     }
