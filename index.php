@@ -9,7 +9,7 @@ use PHPMailer\PHPMailer\Exception;
 
 if (isset($_GET['numero'])) {
     $numero = (float) $_GET['numero'];
-    echo convertirNumeroTexto($numero);
+    echo convertirNumeroTextoConPesos($numero);
     exit; // Asegúrate de que solo se devuelva el texto convertido
 }
 
@@ -40,11 +40,28 @@ function convertirNumeroTexto($numero) {
         return convertirNumeroTexto(floor($numero / 1000)) . ' mil ' . convertirNumeroTexto($numero % 1000);
     }
     if ($numero < 1000000000) {
-        if ($numero % 1000000 === 0) return convertirNumeroTexto(floor($numero / 1000000)) . ' millones';
-        return convertirNumeroTexto(floor($numero / 1000000)) . ' millones ' . convertirNumeroTexto($numero % 1000000);
+        $millones = floor($numero / 1000000);
+        $resto = $numero % 1000000;
+
+        // Manejo especial para "un millón" en lugar de "uno millones"
+        $millonesTexto = ($millones == 1) ? 'un millón' : convertirNumeroTexto($millones) . ' millones';
+
+        // Si no hay residuo, retornamos directamente
+        if ($resto === 0) {
+            return $millonesTexto;
+        }
+
+        return $millonesTexto . ' ' . convertirNumeroTexto($resto);
     }
     return 'Número fuera de rango';
 }
+
+// **Función para asegurarse de que siempre termine con "pesos"**
+function convertirNumeroTextoConPesos($numero) {
+    return convertirNumeroTexto($numero) . ' pesos';
+}
+
+
 
 
 ?>
@@ -75,7 +92,7 @@ function convertirNumeroTexto($numero) {
             fetch('index.php?numero=' + numero)
                 .then(response => response.text())
                 .then(data => {
-                    document.getElementById('cantidad_texto').innerText = data + " pesos";
+                    document.getElementById('cantidad_texto').innerText = data;
                 });
         }
 
