@@ -85,7 +85,7 @@ body { font-family: Arial, sans-serif; margin: 40px; }
 <body>
 <div class='fecha'>$fecha</div><br>
 <div class='titulo'>Cuenta de Cobro</div><br><br>
-<div class='empresa'>DESARROLLO AGIL DIGITAL SAS<br>C.C. 901.724.982-3</div>
+<div class='empresa'>DESARROLLO AGIL DIGITAL SAS<br>NIT. 901.724.982-3</div>
 <div class='debe-a'>
     <p>DEBE A</p>
     <p>$nombre</p>
